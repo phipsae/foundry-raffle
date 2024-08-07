@@ -30,6 +30,7 @@ contract RaffleTest is Test {
         (s_raffle, s_helperConfig) = deployer.deployContract();
         HelperConfig.NetworkConfig memory networkConfig = s_helperConfig
             .getConfig();
+        vm.deal(PLAYER, STARTING_PLAYER_BALANCER);
 
         entranceFee = networkConfig.entranceFee;
         interval = networkConfig.interval;
@@ -42,7 +43,6 @@ contract RaffleTest is Test {
     modifier playerEntered() {
         // Arrange
         vm.prank(PLAYER);
-        vm.deal(PLAYER, STARTING_PLAYER_BALANCER);
         // Act
         s_raffle.enterRaffle{value: entranceFee}();
         _;
@@ -73,6 +73,19 @@ contract RaffleTest is Test {
         vm.expectEmit(true, false, false, false, address(s_raffle));
         emit RaffleEntered(PLAYER);
 
+        s_raffle.enterRaffle{value: entranceFee}();
+    }
+
+    function testDontAllowPlayersToEnterWhileRaffleIsCalculating() public {
+        /// Arrange
+        vm.prank(PLAYER);
+        s_raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        s_raffle.performUpkeep("");
+        /// Act / Assert
+        vm.expectRevert(Raffle.Raffle__RaffleNotOpen.selector);
+        vm.prank(PLAYER);
         s_raffle.enterRaffle{value: entranceFee}();
     }
 }
